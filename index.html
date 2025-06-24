@@ -1,286 +1,217 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Product Catalog</title>
+  <title>Product Catalog Admin Panel</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 24px;
-      margin: 0;
-      padding: 0;
-      background: #87CEFA;
-    }
-    header {
-      background-color: lawnGreen;
-      color: #000;
-      padding: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    header h1 {
-      margin: 0;
-    }
-    #mode-buttons {
-      display: flex;
-      gap: 0.5rem;
-    }
-    #admin-controls {
-      margin: 1rem;
-      display: none;
-    }
-    #product-form {
-      background: #ffffff;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    input[type="text"], input[type="number"], input[type="file"] {
-      width: 100%;
-      padding: 0.5rem;
-      margin: 0.5rem 0;
-      font-size: 24px;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      margin-top: 0.5rem;
-      cursor: pointer;
-      background-color: #4a90e2;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 24px;
-    }
-    .product-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      padding: 1rem;
-      justify-content: center;
-    }
+    body { font-family: sans-serif; margin: 0; background: #1e3a8a; color: white; }
+    header, footer { background: lawnGreen; color: black; padding: 1rem; text-align: center; font-weight: bold; }
+    .container { padding: 1rem; }
+    form, .product-list { margin-bottom: 2rem; }
+    input, textarea { display: block; margin: 0.5rem 0; padding: 0.5rem; width: 100%; max-width: 400px; }
     .product-card {
-      background-color: #fff;
-      width: 100%;
-      max-width: 20ppx;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      overflow: hidden;
+      background: white; color: black; border-radius: 10px; margin: 1rem 0;
+      padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); width: 100%;
     }
-    .product-card img {
-      width: calc(100% - 2rem);
-      height: auto;
-      margin: 1rem;
-      border-radius: 8px;
-      object-fit: contain;
-    }
-    .product-info {
-      padding: 1rem;
-    }
-    .product-info h3 {
-      margin: 0 0 0.5rem 0;
-      color: #333;
-    }
-    .product-info p {
-      margin: 0.5rem 0;
-    }
-    .actions {
-      margin-top: 1rem;
-    }
-    .actions button {
-      margin-right: 0.5rem;
-    }
-    footer {
-      text-align: center;
-      padding: 1rem;
-      background: #f0f0f0;
-      color: #333;
+    .product-card img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; }
+    button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 5px; }
+    .admin-btns button { background: #1e3a8a; color: white; }
+    .product-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;
     }
   </style>
 </head>
-<body><header>
-  <h1>Product Catalog</h1>
-  <div id="mode-buttons">
-    <button onclick="switchToViewer()">Viewer Mode</button>
-    <button onclick="switchToAdmin()">Admin Mode</button>
+<body>
+  <header>Mobit Marketing - Admin Panel</header>
+  <div class="container">
+    <div id="login-section">
+      <input type="password" id="admin-password" placeholder="Enter Admin Password"/>
+      <button onclick="checkPassword()">Login as Admin</button>
+    </div>
+
+    <div id="admin-section" style="display: none;">
+      <form id="product-form">
+        <h2>Add / Edit Product</h2>
+        <input type="text" id="name" placeholder="Product Name" required />
+        <input type="number" id="price" placeholder="Price" required />
+        <textarea id="description" placeholder="Description"></textarea>
+        <input type="file" id="image" accept="image/*" />
+        <button type="submit">Add / Update Product</button>
+        <button type="button" onclick="clearForm()">Clear</button>
+        <button type="button" onclick="openViewerWindow()">Open Shareable Viewer</button>
+      </form>
+    </div>
+
+    <div>
+      <h2>Product Catalog</h2>
+      <div class="product-grid" id="product-list"></div>
+    </div>
   </div>
-</header><div id="admin-controls">
-  <form id="product-form" onsubmit="addProduct(event)">
-    <input type="text" id="product-name" placeholder="Product Name" required />
-    <input type="text" id="product-description" placeholder="Product Description" required />
-    <input type="number" id="product-price" placeholder="Price (₹)" required />
-    <input type="file" id="product-image" accept="image/*" required />
-    <button type="submit">Add Product</button>
-    <button type="button" onclick="downloadCatalog()">Download Catalogue</button>
-    <button type="button" onclick="downloadViewerHTML()">Download Viewer</button>
-  </form>
-</div><div class="product-list" id="product-list"></div><footer>
-  Mohit Marketing - All rights reserved.
-</footer><script>
-  let isAdmin = false;
-  const DB_NAME = "ProductDB";
-  const DB_STORE = "products";
-  let db;
+  <footer>Mobit Marketing - All rights reserved.</footer>
 
-  window.onload = () => {
-    initDB();
-  };
+  <script>
+    let db, editingId = null;
+    const DB_NAME = "productCatalogDB", DB_STORE = "products";
+    const DB_VERSION = 1;
 
-  function switchToViewer() {
-    isAdmin = false;
-    document.getElementById("admin-controls").style.display = "none";
-    renderProducts();
-  }
-
-  function switchToAdmin() {
-    const password = prompt("Enter Admin Password:");
-    if (password === "m8329684339") {
-      isAdmin = true;
-      document.getElementById("admin-controls").style.display = "block";
-      renderProducts();
-    } else {
-      alert("Incorrect password.");
-    }
-  }
-
-  function initDB() {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = (e) => console.error("Error opening DB", e);
-    request.onsuccess = (e) => {
-      db = e.target.result;
-      switchToViewer();
-    };
-    request.onupgradeneeded = (e) => {
+    const openRequest = indexedDB.open(DB_NAME, DB_VERSION);
+    openRequest.onupgradeneeded = (e) => {
       db = e.target.result;
       if (!db.objectStoreNames.contains(DB_STORE)) {
         db.createObjectStore(DB_STORE, { keyPath: "id", autoIncrement: true });
       }
     };
-  }
+    openRequest.onsuccess = (e) => {
+      db = e.target.result;
+      displayProducts();
+    };
 
-  function addProduct(e) {
-    e.preventDefault();
-    const name = document.getElementById("product-name").value;
-    const desc = document.getElementById("product-description").value;
-    const price = document.getElementById("product-price").value;
-    const imageFile = document.getElementById("product-image").files[0];
-    if (!imageFile) return;
+    function checkPassword() {
+      const input = document.getElementById("admin-password").value;
+      if (input === "m8329684339") {
+        document.getElementById("admin-section").style.display = "block";
+        document.getElementById("login-section").style.display = "none";
+      } else {
+        alert("Incorrect password");
+      }
+    }
 
-    const reader = new FileReader();
-    reader.onload = function () {
-      const product = { name, description: desc, price, image: reader.result };
+    document.getElementById("product-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const price = document.getElementById("price").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const imageInput = document.getElementById("image");
+      if (!name || !price) return alert("Name and Price are required");
+
+      const reader = new FileReader();
+      if (imageInput.files.length > 0) {
+        reader.readAsDataURL(imageInput.files[0]);
+        reader.onloadend = () => saveProduct(name, price, description, reader.result);
+      } else {
+        if (editingId) {
+          const tx = db.transaction(DB_STORE, "readonly");
+          const store = tx.objectStore(DB_STORE);
+          const getReq = store.get(editingId);
+          getReq.onsuccess = () => {
+            const existing = getReq.result;
+            saveProduct(name, price, description, existing.image);
+          };
+        } else {
+          saveProduct(name, price, description, "");
+        }
+      }
+    });
+
+    function saveProduct(name, price, description, image) {
       const tx = db.transaction(DB_STORE, "readwrite");
       const store = tx.objectStore(DB_STORE);
-      store.add(product);
+      const product = { name, price, description, image };
+      if (editingId) {
+        product.id = editingId;
+        store.put(product);
+      } else {
+        store.add(product);
+      }
       tx.oncomplete = () => {
-        e.target.reset();
-        renderProducts();
+        clearForm();
+        displayProducts();
       };
-    };
-    reader.readAsDataURL(imageFile);
-  }
+    }
 
-  function renderProducts() {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const store = tx.objectStore(DB_STORE);
-    const request = store.getAll();
+    function clearForm() {
+      document.getElementById("name").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("description").value = "";
+      document.getElementById("image").value = "";
+      editingId = null;
+    }
 
-    request.onsuccess = () => {
-      const products = request.result;
-      const container = document.getElementById("product-list");
-      container.innerHTML = "";
-
-      products.forEach((product) => {
-        const card = document.createElement("div");
-        card.className = "product-card";
-        card.innerHTML = `
-          <img src="${product.image}" alt="${product.name}" />
-          <div class="product-info">
+    function displayProducts() {
+      const productList = document.getElementById("product-list");
+      productList.innerHTML = "";
+      const tx = db.transaction(DB_STORE, "readonly");
+      const store = tx.objectStore(DB_STORE);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        request.result.forEach((product) => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+          card.innerHTML = `
+            <img src="${product.image}" alt="${product.name}">
             <h3>${product.name}</h3>
             <p>${product.description}</p>
-            <p><strong>₹${product.price}</strong></p>
-            ${isAdmin ? `
-              <div class="actions">
-                <button onclick="editProduct(${product.id})">Edit</button>
-                <button onclick="deleteProduct(${product.id})">Delete</button>
-              </div>
-            ` : ""}
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    };
-  }
+            <strong>₹${product.price}</strong>
+            <div class="admin-btns" style="margin-top: 0.5rem;">
+              <button onclick="editProduct(${product.id})">Edit</button>
+              <button onclick="deleteProduct(${product.id})">Delete</button>
+            </div>
+          `;
+          productList.appendChild(card);
+        });
+      };
+    }
 
-  function deleteProduct(id) {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    const store = tx.objectStore(DB_STORE);
-    store.delete(id);
-    tx.oncomplete = renderProducts;
-  }
+    function editProduct(id) {
+      const tx = db.transaction(DB_STORE, "readonly");
+      const store = tx.objectStore(DB_STORE);
+      const request = store.get(id);
+      request.onsuccess = () => {
+        const p = request.result;
+        editingId = p.id;
+        document.getElementById("name").value = p.name;
+        document.getElementById("price").value = p.price;
+        document.getElementById("description").value = p.description;
+      };
+    }
 
-  function editProduct(id) {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const store = tx.objectStore(DB_STORE);
-    const request = store.get(id);
+    function deleteProduct(id) {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      const store = tx.objectStore(DB_STORE);
+      store.delete(id);
+      tx.oncomplete = () => displayProducts();
+    }
 
-    request.onsuccess = () => {
-      const product = request.result;
-      document.getElementById("product-name").value = product.name;
-      document.getElementById("product-description").value = product.description;
-      document.getElementById("product-price").value = product.price;
-      deleteProduct(id);
-      window.scrollTo(0, 0);
-    };
-  }
+    function openViewerWindow() {
+      const tx = db.transaction(DB_STORE, "readonly");
+      const store = tx.objectStore(DB_STORE);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const products = request.result;
+        let viewerHTML = `
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Catalogue</title>
+<style>
+  body { font-family: sans-serif; background: #f0f0f0; margin: 0; padding: 1rem; font-size: 22px; }
+  .product { background: white; margin: 1rem auto; padding: 1rem; border-radius: 10px; max-width: 600px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  img { max-width: 100%; border-radius: 8px; }
+</style>
+</head><body>
+<h1 style="text-align:center;">📦 Product Catalogue</h1>
+`;
 
-  function downloadCatalog() {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const store = tx.objectStore(DB_STORE);
-    const request = store.getAll();
+        for (const p of products) {
+          viewerHTML += `
+<div class="product">
+  <img src="${p.image}" alt="${p.name}">
+  <h2>${p.name}</h2>
+  <p>${p.description}</p>
+  <strong>₹${p.price}</strong>
+</div>`;
+        }
 
-    request.onsuccess = () => {
-      const dataStr = JSON.stringify(request.result);
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+        viewerHTML += `
+<footer style="text-align:center;margin-top:2rem;color:#666;">Mobit Marketing - All rights reserved.</footer>
+</body></html>`;
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "catalogue.json";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    };
-  }
-
-  function downloadViewerHTML() {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const store = tx.objectStore(DB_STORE);
-    const request = store.getAll();
-
-    request.onsuccess = () => {
-      const products = request.result;
-      let viewerHTML = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mohit Marketing</title><style>
-body { font-family: sans-serif; background: #eee; padding: 1rem; font-size: 22px; }
-.product { background: white; margin: 1rem auto; padding: 1rem; border-radius: 10px; max-width: 600px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-img { max-width: 100%; border-radius: 8px; }
-</style></head><body><h1 style="text-align:center;">Product Catalogue</h1>`;for (const p of products) {
-    viewerHTML += `<div class="product"><img src="${p.image}"><h2>${p.name}</h2><p>${p.description}</p><strong>₹${p.price}</strong></div>`;
-  }
-  viewerHTML += `</body></html>`;
-  const blob = new Blob([viewerHTML], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "catalogue-viewer.html";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-};
-
-} </script>
-
+        const blob = new Blob([viewerHTML], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      };
+    }
+  </script>
 </body>
 </html>
